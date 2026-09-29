@@ -43,6 +43,7 @@ pub fn test_assembler(init: std.process.Init, args: []const []const u8, arena_al
     var compiler = assembler.Compiler.init(tokens);
     defer compiler.deinit();
     try compiler.compile_all();
+    try compiler.resolve_labels();
 
     // log
     var machine_code_builder: std.ArrayList(u8) = .empty;

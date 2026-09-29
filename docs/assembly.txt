@@ -1,0 +1,66 @@
+
+[ GRAMMAR ]
+
+.123        = register reference
+$123        = raw stack offset
+$$123       = stack offset relative to stack pointer
+123         = constant int
+{A}         = character literal (turns into it's ascii value integer)
+            escape codes are:
+                \n: newline
+                \t: tab
+                \a: apostrophe
+                \q: quote
+                \r: carriage return
+                \\: back-slash
+
+<reg>       = expects register reference here
+<soff>      = expects raw stack offset here
+<spoff>     = expects stack offset relative to stack ptr here
+<const>     = expects constant
+<val>       = expects <reg>, <spoff>, <soff> or <const> here
+
+<label>     = label name
+
+; hello     = comment (single-line)
+
+[ INSTRUCTIONS ]
+
+mov <reg>, <val>            : put <val> into <reg>
+inc <reg>                   : increment reg
+dec <reg>                   : decrement reg
+
+ld <reg>, <val>             : get stack value from offset <val> into <reg>
+st <val1>, <val2>           : set stack value <val2> at offset <val1>
+spinc <val>                 : increment stack ptr by <val>
+spdec <val>                 : decrement stack ptr by <val>
+
+jmp <label>                 : jump to a label without pushing pc onto call stack
+call <label>                : jump to a label and push pc onto call stack
+ret                         : return to the pc at the top of the call stack
+
+add <reg>, <val1>, <val2>   : add two values and put result in <reg>
+sub <reg>, <val1>, <val2>   : subtract two values and put result in <reg>
+mul <reg>, <val1>, <val2>   : multiply two values and put result in <reg>
+div <reg>, <val1>, <val2>   : divide two values and put result in <reg>
+pow <reg>, <val1>, <val2>   : power two values and put result in <reg>
+
+cmp <val1>, <val2>          : compare two values and store result
+jl <label>                  : jump if <val1> was less than <val2>
+jg <label>                  : jump if <val1> was greater than <val2>
+je <label>                  : jump if <val1> was equal to <val2>
+jle <label>                 : jump if <val1> was less than or equal to <val2>
+jge <label>                 : jump if <val1> was greater than or equal to <val2>
+jne <label>                 : jump if <val1> was not equal to <val2>
+
+jz <label>, <value>         : jump if <value> is zero
+jnz <label>, <value>        : jump if <value> isn't zero
+
+halt                        : exit the program (required)
+syscall <const>             : call a syscall
+nop                         : NOP (0x0)
+
+[ SYSCALLS ]
+
+go to `machine_code_rules.txt` and read the syscalls from there,
+I'm too lazy to re-write explanations.
