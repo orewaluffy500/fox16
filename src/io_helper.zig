@@ -94,3 +94,29 @@ pub const ZStdin = struct {
         return self.read_until_delim(' ');
     }
 };
+
+
+
+
+
+
+
+
+
+pub fn read_file(io: std.Io, alloc: std.mem.Allocator, file_name: []const u8) struct { bool, []u8 } {
+    const cwd = std.Io.Dir.cwd();
+    const contents = cwd.readFileAlloc(io, file_name, alloc, .unlimited) catch {
+        std.debug.print("unable to open file '{s}'!\n", .{file_name});
+        return .{ false, "" };
+    };
+
+    return .{ true, contents };
+}
+
+pub fn write_file(io: std.Io, file_name: []const u8, contents: []const u8) void {
+    const cwd = std.Io.Dir.cwd();
+
+    cwd.writeFile(io, .{ .data = contents, .sub_path = file_name }) catch {
+        std.debug.print("unable to write to file '{s}'!\n", .{file_name});
+    };
+}

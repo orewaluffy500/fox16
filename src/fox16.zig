@@ -20,9 +20,7 @@ const CompInfo = struct {
     }
 };
 
-const ArithOper = enum {
-    add, sub, mul, div, pow, none
-};
+const ArithOper = enum { add, sub, mul, div, pow, none };
 
 const ArithInfo = struct {
     const Self = @This();
@@ -56,7 +54,7 @@ const ArithInfo = struct {
             },
             .none => {
                 return self.operand1;
-            }
+            },
         }
     }
 
@@ -66,15 +64,14 @@ const ArithInfo = struct {
     }
 };
 
-
 // CPU struct
 pub const CPU = struct {
     const Self = CPU;
-    
+
     memory: Memory(65536) = .{},
     register_file: [129]u16 = [_]u16{0} ** 129,
     program_file: [16384]u32 = [_]u32{0} ** 16384,
-    
+
     call_stack: std.ArrayList(usize),
     comp_info: CompInfo = .{},
     arith_info: ArithInfo = .{},
@@ -85,21 +82,16 @@ pub const CPU = struct {
     stdin: *io_helper.ZStdin,
 
     pub fn new(stdout: *io_helper.ZStdout, stderr: *io_helper.ZStderr, stdin: *io_helper.ZStdin) CPU {
-        return CPU{ 
-            .stdin = stdin,
-            .stdout = stdout,
-            .stderr = stderr,
-            .call_stack = std.ArrayList(usize){
-                .items = &.{},
-                .capacity = 0,
-            }
-        };
+        return CPU{ .stdin = stdin, .stdout = stdout, .stderr = stderr, .call_stack = std.ArrayList(usize){
+            .items = &.{},
+            .capacity = 0,
+        } };
     }
 
     pub fn deinit(self: *Self) void {
         self.call_stack.deinit(alloc);
     }
-    
+
     pub fn next(self: *Self) u32 {
         self.pc += 1;
         return self.program_file[self.pc - 1];
@@ -109,7 +101,9 @@ pub const CPU = struct {
         const instruction = self.next();
 
         switch (instruction) {
-            defs.Instructions.HALT => { return false; },
+            defs.Instructions.HALT => {
+                return false;
+            },
             defs.Instructions.NOP => {},
             defs.Instructions.SYSCALL => {
                 const syscall = self.next();
@@ -160,12 +154,12 @@ pub const CPU = struct {
 
             defs.Instructions.CALL => {
                 const dest = self.next();
-                try self.call_stack.append(alloc, self.pc); 
+                try self.call_stack.append(alloc, self.pc);
                 self.jump(dest);
             },
 
             defs.Instructions.RET => {
-                if (self.call_stack.items.len < 1){
+                if (self.call_stack.items.len < 1) {
                     self.runtime_fault("unable to return from empty call stack", .{});
                 }
                 const dest = self.call_stack.pop() orelse unreachable;
@@ -222,7 +216,7 @@ pub const CPU = struct {
             },
 
             // ARITHMETIC OPERATIONS
-            
+
             defs.Instructions.ADD => {
                 self.do_arith_oper(.add);
             },
@@ -245,20 +239,20 @@ pub const CPU = struct {
 
             else => {
                 self.runtime_fault("unexpected instruction '{}'", .{instruction});
-            }
+            },
         }
 
         return true;
     }
 
     pub fn execute_all(self: *Self) !void {
-        while (try self.execute()){}
+        while (try self.execute()) {}
     }
 
     // HELPERS
 
     fn jump(self: *Self, dest: u32) void {
-        if (dest < 0 or dest >= self.program_file.len){
+        if (dest < 0 or dest >= self.program_file.len) {
             self.runtime_fault("out of bounds jump destination '{}'", .{dest});
         }
 
@@ -277,7 +271,7 @@ pub const CPU = struct {
     }
 
     pub fn get_register(self: *Self, register: usize) u16 {
-        if (register < 0 or register >= self.register_file.len){
+        if (register < 0 or register >= self.register_file.len) {
             self.runtime_fault("out of bounds registers '{}'", .{register});
         }
         return self.register_file[register];
@@ -287,9 +281,9 @@ pub const CPU = struct {
         _ = self.get_register(register);
         self.register_file[register] = @truncate(value);
     }
-    
+
     pub fn get_from_stack(self: *Self, offset: usize) u16 {
-        if (offset < 0 or offset >= self.memory.stack.len){
+        if (offset < 0 or offset >= self.memory.stack.len) {
             self.runtime_fault("invalid offset '{}'", .{offset});
         }
 
@@ -305,22 +299,17 @@ pub const CPU = struct {
     fn next_value(self: *Self) u16 {
         const raw = self.next();
         const info = defs.decode_value(raw);
-        if (info[0] == defs.Mode.CONST){
+        if (info[0] == defs.Mode.CONST) {
             return @intCast(info[1]);
-        }
-        else if (info[0] == defs.Mode.SPOFFSET){
+        } else if (info[0] == defs.Mode.SPOFFSET) {
             return @truncate(self.memory.relative_offset(@truncate(info[1])));
-        } 
-        else {
+        } else {
             return self.get_register(@intCast(info[1]));
         }
     }
 
     pub fn load_as_string(self: *Self, offset: usize) ![]u8 {
-        var list = std.ArrayList(u8){
-            .capacity = 0,
-            .items = &.{}
-        };
+        var list = std.ArrayList(u8){ .capacity = 0, .items = &.{} };
         defer list.deinit(alloc);
 
         var current_offset = offset;
@@ -335,17 +324,17 @@ pub const CPU = struct {
     pub fn store_string(self: *Self, offset: usize, string: []const u8) void {
         var current_offset = offset;
         var index = current_offset - offset;
-        while (index < string.len){
+        while (index < string.len) {
             const wide: u16 = @intCast(string[index]);
             self.set_to_stack(current_offset, wide);
-            
+
             current_offset += 1;
             index = current_offset - offset;
         }
     }
 
     // SYSCALLS
-    
+
     pub fn handle_syscall(self: *Self, syscall_key: u32) !void {
         switch (syscall_key) {
             defs.Syscalls.PINT => {
@@ -379,10 +368,9 @@ pub const CPU = struct {
             },
             else => {
                 self.runtime_fault("unexpected syscall '{}'", .{syscall_key});
-            }
+            },
         }
     }
-
 
     // IMPLEMENTATION TEMPLATES
 
@@ -396,15 +384,13 @@ pub const CPU = struct {
     }
 };
 
-
-
 // MEMORY STRUCT GENERIC
 fn Memory(size: u32) type {
     return struct {
         const Self = @This();
         stack: [size]u16 = [_]u16{0} ** size,
         sp: usize = 0,
-        
+
         pub fn write(self: *Self, offset: usize, value: u16) void {
             self.stack[offset] = value;
         }
@@ -418,4 +404,3 @@ fn Memory(size: u32) type {
         }
     };
 }
-

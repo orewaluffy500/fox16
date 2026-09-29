@@ -1,0 +1,7 @@
+To assemble a source file do:
+
+    fox16 -c FILENAME
+
+To execute a source file do:
+
+    fox16 -r FILENAME

@@ -237,6 +237,34 @@ pub const Compiler = struct {
             try self.insert_instruction(defs.Instructions.SYSCALL);
             try self.insert_instruction(self.expect_integer());
         }
+        
+        else if (equal_to(keyword, "halt")){
+            try self.insert_instruction(defs.Instructions.HALT);
+        }
+
+        // STACK RELATED
+        
+        else if (equal_to(keyword, "ld")){
+            try self.insert_instruction(defs.Instructions.LD);
+            try self.insert_instruction(self.expect_register());
+            try self.insert_instruction(self.expect_value());
+        }
+
+        else if (equal_to(keyword, "st")){
+            try self.insert_instruction(defs.Instructions.ST);
+            try self.insert_instruction(self.expect_value());
+            try self.insert_instruction(self.expect_value());
+        }
+
+        else if (equal_to(keyword, "spinc")){
+            try self.insert_instruction(defs.Instructions.SPI);
+            try self.insert_instruction(self.expect_value());
+        }
+
+        else if (equal_to(keyword, "spdec")){
+            try self.insert_instruction(defs.Instructions.SPD);
+            try self.insert_instruction(self.expect_value());
+        }
     }
 
     // HELPERS

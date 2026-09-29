@@ -1,0 +1,3 @@
+    mov r128, 204
+    syscall 256
+    halt
