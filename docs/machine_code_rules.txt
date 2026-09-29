@@ -1,0 +1,58 @@
+( GRAMMAR DEFINITION ) purely for ease-of-writing
+
+    [index] : a raw index for a register
+    [const] : an immediate integer value
+    [value] : an encoded value created with the help of `fox16.encode_value(mode, value)`
+            register_encoded(idx): encode a register reference
+            const_encoded(value): encode a constant value
+            spoffset_encoded(offset): encode a stack offset relative to stack ptr
+
+( INSTRUCTIONS )
+
+HALT                        : immediately exit
+SOUP [value]                : print "soup with [value]"
+SYSCALL [const]             : do a syscall 
+
+MOV [index] [value]         : put [value] into register at [index]
+ZZ [index]                  : set [index] register to zero
+
+LD [index] [value]          : load the value in the stack with offset [value] into register [index]
+ST [value1] [value2]        : store [value2] into the stack at offset [value1]
+SPI [value]                 : increase stack ptr
+SPD [value]                 : decrease stack ptr
+
+JMP [const]                 : jump to an instruction by index
+CALL [const]                : jump to an instruction and push original pc onto call stack
+RET                         : return to the pc at the top of the call stack and pop it
+JZ [const] [value]          : jump to instruction at [const] if [value] is 0
+JNZ [const] [value]         : jump to instruction at [const] if [value] isn't 0
+
+CMP [value] [value]         : compare the two values and store result
+JL [const]                  : jump if value1 was less than value2
+JLE [const]                 : jump if value1 was less than or equal to value2
+JG [const]                  : jump if value1 was greater than value2
+JGE [const]                 : jump if value1 was greater than or equal to value2
+JE [const]                  : jump if value1 was equal to value2
+JNE [const]                 : jump if value1 was not equal to value2
+
+ADD [index] [value] [value] : add two values and store result in register [index]
+SUB [index] [value] [value] : subtract two values and store result in register [index]
+MUL [index] [value] [value] : multiply two values and store result in register [index]
+DIV [index] [value] [value] : divide two values and store result in register [index]
+POW [index] [value] [value] : power two values and store result in register [index]
+
+( SYSCALLS )
+
+256         : print register 128 as an integer
+257         : print register 128 as a character
+
+512         : read an integer into register 128
+513         : read a character (ASCII value) into register 128
+
+258         : register 128 is a stack offset
+            start at that offset and move forward on the stack until we reach 0 and print each value as a character
+            basically print a string off the stack
+    
+514         : register 128 is a stack offset
+            read a string and put each of its bytes onto the stack starting from the offset given.
+            basically read a string onto the stack
