@@ -1,0 +1,110 @@
+; ----------------------------------------------------
+; THIS IS A SIMPLE PROGRAM
+; THAT SIMULATES AN ESOLANG
+; BASED ON COUNTERS
+; ----------------------------------------------------
+
+label _main_
+    mov .1, 0       ; program counter
+    mov .2, 0       ; current instruction
+    mov .3, 8       ; program start
+    mov .4, 256     ; program end
+
+    mov .5, 0       ; counter
+
+    call feed
+    call iterate
+    jmp _exit_
+
+label feed
+    mov .10, .3     ; copy array start
+
+    st .10, 1      ; increment counter
+    inc .10
+
+    st .10, 6      ; jump to....
+    inc .10
+
+    st .10, 4      ; .. PC 4
+    inc .10
+
+    st .10, 3      ; jumping to PC 4 skips this part
+    inc .10
+
+    st .10, 4      ; end the program, and instead leads us here
+    inc .10
+
+    ret
+
+label update
+    add .128, .1, .3    ; get the actual address
+    ld .2, .128
+    inc .1
+    ret
+
+label iterate
+    call update
+    call handle
+
+    ; check condition
+    cmp .1, .4
+    jl iterate
+    
+    ret
+
+label _exit_
+    halt
+
+
+
+
+label handle
+    cmp .2, 1
+    je i_inc
+
+    cmp .2, 2
+    je i_dec
+
+    cmp .2, 3
+    je i_show
+
+    cmp .2, 4
+    je i_end
+
+    cmp .2, 5
+    je i_read
+
+    cmp .2, 6
+    je i_jmp
+
+    ret
+
+label i_inc
+    inc .5
+    ret
+
+label i_dec
+    dec .5
+    ret
+
+label i_show
+    mov .128, .5
+    syscall 256
+    mov .128, {\n}
+    syscall 257
+    ret
+
+label i_end
+    mov .1, .4
+    inc .1      ; just to be sure
+    ret
+
+label i_read
+    syscall 512
+    mov .5, .128
+    ret
+
+label i_jmp
+    call update
+    mov .1, .2
+    ret
