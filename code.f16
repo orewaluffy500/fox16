@@ -1,19 +1,5 @@
 label _main_
-    syscall 512
-    cmp .128, 18
-    jl kid
-    jge adult
-    jmp _exit_
-
-label kid
     mov .128, {A}
     syscall 257
-    jmp _exit_
-
-label adult
-    mov .128, {B}
-    syscall 257
-    jmp _exit_
 
 label _exit_
-    halt

@@ -37,13 +37,23 @@ pub fn test_assembler(init: std.process.Init, args: []const []const u8, arena_al
 
     // lex
     var lexer = assembler.Lexer.init(init.arena, source);
-    const tokens = try lexer.lex();
+    const tokens = lexer.lex() catch {
+        std.log.err("fatal tokenization error", .{});
+        std.process.exit(1);
+        return &[_]assembler.Token{};
+    };
 
     // compile
     var compiler = assembler.Compiler.init(tokens);
     defer compiler.deinit();
-    try compiler.compile_all();
-    try compiler.resolve_labels();
+    compiler.compile_all() catch {
+        std.log.err("fatal compilation error", .{});
+        std.process.exit(1);
+    };
+    compiler.resolve_labels() catch {
+        std.log.err("fatal post-compilation error", .{});
+        std.process.exit(1);
+    };
 
     // log
     var machine_code_builder: std.ArrayList(u8) = .empty;
@@ -77,12 +87,11 @@ pub fn test_execution(init: std.process.Init, args: []const []const u8, arena_al
     var split_iterator = std.mem.splitAny(u8, contents, " ");
     
     while (split_iterator.next()) |part| {
-        const num = std.fmt.parseInt(u32, part, 16) catch 0;
-        if (num == 0){
-            std.log.warn("found nop, might be intentional or might be invalid.", .{});
+        const num = std.fmt.parseInt(i32, part, 16) catch -1;
+        if (num == -1){
+            std.log.warn("invalid instruction '{s}'", .{part});
         }
-
-        try program_builder.append(gpa, num);
+        try program_builder.append(gpa, @intCast(@max(num, 0)));
     }
 
     // turn into slice
@@ -101,27 +110,10 @@ pub fn test_execution(init: std.process.Init, args: []const []const u8, arena_al
     cpu.put_program(slice);
 
     // execute
-    try cpu.execute_all();
-}
-
-
-
-
-
-
-pub fn test_cpu(init: std.process.Init) !void {
-    var stdout = fox16.io_helper.ZStdout.init(&init);
-    var stderr = fox16.io_helper.ZStderr.init(&init);
-
-    var buf: [1024]u8 = undefined;
-    var stdin = fox16.io_helper.ZStdin.init(&buf, &init);
-
-    var cpu: fox16.CPU = fox16.CPU.new(&stdout, &stderr, &stdin);
-    defer cpu.deinit();
-
-    var program = [_]u32{
+    cpu.execute_all() catch {
+        std.log.err("fatal execution error", .{});
+        std.process.exit(1);
     };
-
-    cpu.put_program(&program);
-    try cpu.execute_all();
 }
+
+

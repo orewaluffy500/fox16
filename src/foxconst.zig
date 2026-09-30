@@ -1,3 +1,4 @@
+const std = @import("std");
 
 // INSTRUCTION DEFINITIONS
 pub const Instructions = struct {
@@ -90,4 +91,10 @@ pub fn safe_pow(base: u16, exp: u32) u16 {
         b *%= b;
     }
     return result;
+}
+
+pub fn fault(comptime fmt: []const u8, args: anytype) void {
+    std.debug.print("fault: ", .{});
+    std.debug.print(fmt, args);
+    std.debug.print("\n", .{});
 }

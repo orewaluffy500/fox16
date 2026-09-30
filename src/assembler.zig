@@ -2,6 +2,12 @@ const std = @import("std");
 const defs = @import("./foxconst.zig");
 const gpa = std.heap.page_allocator;
 
+const AssemblerError = error {
+    undefined_symbol,
+    unexpected_char,
+    expected_value_not_found,
+};
+
 const Position = struct {
     index: usize = 0,
     line: usize = 0,
@@ -113,7 +119,8 @@ pub const Lexer = struct {
                         const final = try self.arena_alloc().dupe(u8, try std.fmt.bufPrint(&buf, "{}", .{ch}));
                         try tokens.append(gpa, Token.init(.int, start, final));
                     } else {
-                        assembler_fault("unexpected escape character '\\{c}'!", .{escape_char}, self.pos);
+                        fault("unexpected escape character '\\{c}'!", .{escape_char}, self.pos);
+                        return AssemblerError.unexpected_char;
                     }
                 }
                 else {
@@ -124,7 +131,8 @@ pub const Lexer = struct {
 
                 self.next();
                 if (self.current != '}'){
-                    assembler_fault("expected closing bracket '}}'!", .{}, self.pos);
+                    fault("expected closing bracket '}}'!", .{}, self.pos);
+                    return AssemblerError.unexpected_char;
                 }
 
                 self.next();
@@ -271,7 +279,8 @@ pub const Compiler = struct {
             if (self.label_map.get(target)) |dest| {
                 self.program.items[where] = @truncate(dest);
             } else {
-                assembler_fault("un-resolved label '{s}'!", .{target}, null);
+                fault("un-resolved label '{s}'!", .{target}, null);
+                return AssemblerError.undefined_symbol;
             }
         }
     }
@@ -300,14 +309,14 @@ pub const Compiler = struct {
 
         else if (equal_to(keyword, "mov")){
             try self.insert_instruction(defs.Instructions.MOV);
-            try self.insert_instruction(self.expect_register());
-            self.expect_comma();
-            try self.insert_instruction(self.expect_value());
+            try self.insert_instruction(try self.expect_register());
+            try self.expect_comma();
+            try self.insert_instruction(try self.expect_value());
         }
 
         else if (equal_to(keyword, "syscall")){
             try self.insert_instruction(defs.Instructions.SYSCALL);
-            try self.insert_instruction(self.expect_integer());
+            try self.insert_instruction(try self.expect_integer());
         }
         
         else if (equal_to(keyword, "halt")){
@@ -317,7 +326,7 @@ pub const Compiler = struct {
         // HELPERS
 
         else if (equal_to(keyword, "inc")){
-            const register = self.expect_register();
+            const register = try self.expect_register();
             try self.insert_instruction(defs.Instructions.ADD);
             try self.insert_instruction(register);
             try self.insert_instruction(defs.register_encoded(register));
@@ -325,7 +334,7 @@ pub const Compiler = struct {
         }
 
         else if (equal_to(keyword, "dec")){
-            const register = self.expect_register();
+            const register = try self.expect_register();
             try self.insert_instruction(defs.Instructions.SUB);
             try self.insert_instruction(register);
             try self.insert_instruction(defs.register_encoded(register));
@@ -336,141 +345,141 @@ pub const Compiler = struct {
 
         else if (equal_to(keyword, "add")){
             try self.insert_instruction(defs.Instructions.ADD);
-            try self.insert_instruction(self.expect_register());
-            self.expect_comma();
-            try self.insert_instruction(self.expect_value());
-            self.expect_comma();
-            try self.insert_instruction(self.expect_value());
+            try self.insert_instruction(try self.expect_register());
+            try self.expect_comma();
+            try self.insert_instruction(try self.expect_value());
+            try self.expect_comma();
+            try self.insert_instruction(try self.expect_value());
         }
 
         else if (equal_to(keyword, "sub")){
             try self.insert_instruction(defs.Instructions.SUB);
-            try self.insert_instruction(self.expect_register());
-            self.expect_comma();
-            try self.insert_instruction(self.expect_value());
-            self.expect_comma();
-            try self.insert_instruction(self.expect_value());
+            try self.insert_instruction(try self.expect_register());
+            try self.expect_comma();
+            try self.insert_instruction(try self.expect_value());
+            try self.expect_comma();
+            try self.insert_instruction(try self.expect_value());
         }
 
         else if (equal_to(keyword, "mul")){
             try self.insert_instruction(defs.Instructions.MUL);
-            try self.insert_instruction(self.expect_register());
-            self.expect_comma();
-            try self.insert_instruction(self.expect_value());
-            self.expect_comma();
-            try self.insert_instruction(self.expect_value());
+            try self.insert_instruction(try self.expect_register());
+            try self.expect_comma();
+            try self.insert_instruction(try self.expect_value());
+            try self.expect_comma();
+            try self.insert_instruction(try self.expect_value());
         }
 
         else if (equal_to(keyword, "div")){
             try self.insert_instruction(defs.Instructions.DIV);
-            try self.insert_instruction(self.expect_register());
-            self.expect_comma();
-            try self.insert_instruction(self.expect_value());
-            self.expect_comma();
-            try self.insert_instruction(self.expect_value());
+            try self.insert_instruction(try self.expect_register());
+            try self.expect_comma();
+            try self.insert_instruction(try self.expect_value());
+            try self.expect_comma();
+            try self.insert_instruction(try self.expect_value());
         }
 
         else if (equal_to(keyword, "pow")){
             try self.insert_instruction(defs.Instructions.POW);
-            try self.insert_instruction(self.expect_register());
-            self.expect_comma();
-            try self.insert_instruction(self.expect_value());
-            self.expect_comma();
-            try self.insert_instruction(self.expect_value());
+            try self.insert_instruction(try self.expect_register());
+            try self.expect_comma();
+            try self.insert_instruction(try self.expect_value());
+            try self.expect_comma();
+            try self.insert_instruction(try self.expect_value());
         }
 
         // LOGICAL
         else if (equal_to(keyword, "cmp")){
             try self.insert_instruction(defs.Instructions.CMP);
-            try self.insert_instruction(self.expect_value());
-            self.expect_comma();
-            try self.insert_instruction(self.expect_value());
+            try self.insert_instruction(try self.expect_value());
+            try self.expect_comma();
+            try self.insert_instruction(try self.expect_value());
         }
 
         else if (equal_to(keyword, "jz")){
             try self.insert_instruction(defs.Instructions.JZ);
-            try self.jump_to(self.expect_ident());
-            try self.insert_instruction(self.expect_value());
+            try self.jump_to(try self.expect_ident());
+            try self.insert_instruction(try self.expect_value());
         }
 
         else if (equal_to(keyword, "jnz")){
             try self.insert_instruction(defs.Instructions.JNZ);
-            try self.jump_to(self.expect_ident());
-            try self.insert_instruction(self.expect_value());
+            try self.jump_to(try self.expect_ident());
+            try self.insert_instruction(try self.expect_value());
         }
         
         else if (equal_to(keyword, "jl")){
             try self.insert_instruction(defs.Instructions.JL);
-            try self.jump_to(self.expect_ident());
+            try self.jump_to(try self.expect_ident());
         }
 
         else if (equal_to(keyword, "jg")){
             try self.insert_instruction(defs.Instructions.JG);
-            try self.jump_to(self.expect_ident());
+            try self.jump_to(try self.expect_ident());
         }
 
         else if (equal_to(keyword, "jle")){
             try self.insert_instruction(defs.Instructions.JLE);
-            try self.jump_to(self.expect_ident());
+            try self.jump_to(try self.expect_ident());
         }
 
         else if (equal_to(keyword, "jge")){
             try self.insert_instruction(defs.Instructions.JGE);
-            try self.jump_to(self.expect_ident());
+            try self.jump_to(try self.expect_ident());
         }
 
         else if (equal_to(keyword, "je")){
             try self.insert_instruction(defs.Instructions.JE);
-            try self.jump_to(self.expect_ident());
+            try self.jump_to(try self.expect_ident());
         }
 
         else if (equal_to(keyword, "jne")){
             try self.insert_instruction(defs.Instructions.JNE);
-            try self.jump_to(self.expect_ident());
+            try self.jump_to(try self.expect_ident());
         }
 
         // STACK RELATED
         
         else if (equal_to(keyword, "ld")){
             try self.insert_instruction(defs.Instructions.LD);
-            try self.insert_instruction(self.expect_register());
-            self.expect_comma();
-            try self.insert_instruction(self.expect_value());
+            try self.insert_instruction(try self.expect_register());
+            try self.expect_comma();
+            try self.insert_instruction(try self.expect_value());
         }
 
         else if (equal_to(keyword, "st")){
             try self.insert_instruction(defs.Instructions.ST);
-            try self.insert_instruction(self.expect_value());
-            self.expect_comma();
-            try self.insert_instruction(self.expect_value());
+            try self.insert_instruction(try self.expect_value());
+            try self.expect_comma();
+            try self.insert_instruction(try self.expect_value());
         }
 
         else if (equal_to(keyword, "spinc")){
             try self.insert_instruction(defs.Instructions.SPI);
-            try self.insert_instruction(self.expect_value());
+            try self.insert_instruction(try self.expect_value());
         }
 
         else if (equal_to(keyword, "spdec")){
             try self.insert_instruction(defs.Instructions.SPD);
-            try self.insert_instruction(self.expect_value());
+            try self.insert_instruction(try self.expect_value());
         }
 
         // CONTROL FLOW
 
         else if (equal_to(keyword, "label")){
-            const name = self.expect_ident();
+            const name = try self.expect_ident();
 
             try self.label_map.put(name, self.pc);
         }
 
         else if (equal_to(keyword, "jmp")){
-            const name = self.expect_ident();
+            const name = try self.expect_ident();
             try self.insert_instruction(defs.Instructions.JMP);
             try self.jump_to(name);
         }
         
         else if (equal_to(keyword, "call")){
-            const name = self.expect_ident();
+            const name = try self.expect_ident();
             try self.insert_instruction(defs.Instructions.CALL);
             try self.jump_to(name);
         }
@@ -501,74 +510,81 @@ pub const Compiler = struct {
         self.pc += 1;
     }
 
-    pub fn expect_integer(self: *Self) u16 {
+    pub fn expect_integer(self: *Self) !u16 {
         self.next();
         const token = self.current;
         if (token.variant != .int){
-            assembler_fault("expected integer!", .{}, token.pos);
+            fault("expected integer!", .{}, token.pos);
+            return AssemblerError.expected_value_not_found;
         }
 
         const num = std.fmt.parseInt(u16, token.value, 10) catch 0;
         return num;
     }
 
-    pub fn expect_register(self: *Self) u16 {
+    pub fn expect_register(self: *Self) !u16 {
         self.next();
         const token = self.current;
         if (token.variant != .register){
-            assembler_fault("expected register!", .{}, token.pos);
+            fault("expected register!", .{}, token.pos);
+            return AssemblerError.expected_value_not_found;
         }
 
         const num = std.fmt.parseInt(u16, token.value, 10) catch 0;
         return num;
     }
 
-    pub fn expect_stack_offset(self: *Self) u16 {
+    pub fn expect_stack_offset(self: *Self) !u16 {
         self.next();
         const token = self.current;
         if (token.variant != .stack_offset){
-            assembler_fault("expected stack offset!", .{}, token.pos);
+            fault("expected stack offset!", .{}, token.pos);
+            return AssemblerError.expected_value_not_found;
         }
 
         const num = std.fmt.parseInt(u16, token.value, 10) catch 0;
         return num;
     }
 
-    pub fn expect_stack_ptr_offset(self: *Self) u16 {
+    pub fn expect_stack_ptr_offset(self: *Self) !u16 {
         self.next();
         const token = self.current;
         if (token.variant != .stackptr_offset){
-            assembler_fault("expected stack ptr offset!", .{}, token.pos);
+            fault("expected stack ptr offset!", .{}, token.pos);
+            return AssemblerError.expected_value_not_found;
         }
 
         const num = std.fmt.parseInt(u16, token.value, 10) catch 0;
         return num;
     }
 
-    pub fn expect_ident(self: *Self) []const u8 {
+    pub fn expect_ident(self: *Self) ![]const u8 {
         self.next();
         const token = self.current;
         if (token.variant != .ident){
-            assembler_fault("expected identifier!", .{}, token.pos);
+            fault("expected identifier!", .{}, token.pos);
+            return AssemblerError.expected_value_not_found;
         }
 
         return token.value;
     }
 
-    pub fn expect_comma(self: *Self) void {
+    pub fn expect_comma(self: *Self) !void {
         self.next();
         const token = self.current;
         if (token.variant != .comma){
-            assembler_fault("expected comma!", .{}, token.pos);
+            fault("expected comma!", .{}, token.pos);
+            return AssemblerError.expected_value_not_found;
         }
     }
 
-    pub fn expect_value(self: *Self) u32 {
+    pub fn expect_value(self: *Self) !u32 {
         self.next();
 
         const token = self.current;
         if (token.variant != .int and token.variant != .register and token.variant != .stack_offset and token.variant != .stackptr_offset){
-            assembler_fault("expected value, got {any}!", .{token.variant}, token.pos);
+            fault("expected value, got {any}!", .{token.variant}, token.pos);
+            return AssemblerError.expected_value_not_found;
         }
 
         const num = std.fmt.parseInt(u16, token.value, 10) catch 0;
@@ -588,21 +604,12 @@ pub const Compiler = struct {
 
 
 
-
-
-
-
-
-pub fn assembler_fault(comptime fmt: []const u8, args: anytype, pos: ?Position) void {
-    if (pos) |nonnull| {
-        std.debug.print("assembler fault: ", .{});
-        std.debug.print(fmt, args);
-        std.debug.print(" (at line {}, column {})\n", .{nonnull.line, nonnull.col});
-        std.process.exit(2);
-    }
-
-    std.debug.print("assembler fault: ", .{});
+pub fn fault(comptime fmt: []const u8, args: anytype, pos: ?Position) void {
+    std.debug.print("\nassembler fault: ", .{});
     std.debug.print(fmt, args);
-    std.debug.print("\n", .{});
-    std.process.exit(2);
+    if (pos) |posn| {
+        std.debug.print(" (at line {}, column {})\n", .{posn.line, posn.col});
+    } else {
+        std.debug.print("\n", .{});
+    }
 }
