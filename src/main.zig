@@ -13,7 +13,7 @@ pub fn main(init: std.process.Init) !void {
     if (args.len == 2){
         std.debug.print("expected mode arguments\n", .{});
         std.debug.print("   -c FILENAME.f16     : assemble a file\n", .{});
-        std.debug.print("   -o FILENAME.xf      : execute an assembled file\n", .{});
+        std.debug.print("   -r FILENAME.xf      : execute an assembled file\n", .{});
         std.process.exit(3);
     }
 
@@ -36,22 +36,22 @@ pub fn test_assembler(init: std.process.Init, args: []const []const u8, arena_al
     _, const source = fox16.io_helper.read_file(init.io, arena_alloc, file_name);
 
     // lex
-    var lexer = assembler.Lexer.init(init.arena, source);
-    const tokens = lexer.lex() catch {
-        std.log.err("fatal tokenization error", .{});
+    var lexer = assembler.Lexer.init(arena_alloc, init.gpa, source);
+    const tokens = lexer.lex() catch |err| {
+        std.log.err("fatal tokenization error: {s}", .{@errorName(err)});
         std.process.exit(1);
         return &[_]assembler.Token{};
     };
 
     // compile
-    var compiler = assembler.Compiler.init(tokens);
+    var compiler = assembler.Compiler.init(tokens, init.gpa);
     defer compiler.deinit();
-    compiler.compile_all() catch {
-        std.log.err("fatal compilation error", .{});
+    compiler.compile_all() catch |err| {
+        std.log.err("fatal compilation error: {s}", .{@errorName(err)});
         std.process.exit(1);
     };
-    compiler.resolve_labels() catch {
-        std.log.err("fatal post-compilation error", .{});
+    compiler.resolve_labels() catch |err| {
+        std.log.err("fatal post-compilation error: {s}", .{@errorName(err)});
         std.process.exit(1);
     };
 
@@ -104,14 +104,14 @@ pub fn test_execution(init: std.process.Init, args: []const []const u8, arena_al
     var buf: [1024]u8 = undefined;
     var stdin = fox16.io_helper.ZStdin.init(&buf, &init);
 
-    var cpu = fox16.CPU.new(&stdout, &stderr, &stdin);
+    var cpu = fox16.CPU.new(init.gpa, &stdout, &stderr, &stdin);
     defer cpu.deinit();
 
     cpu.put_program(slice);
 
     // execute
-    cpu.execute_all() catch {
-        std.log.err("fatal execution error", .{});
+    cpu.execute_all() catch |err| {
+        std.log.err("fatal execution error: {s}", .{@errorName(err)});
         std.process.exit(1);
     };
 }

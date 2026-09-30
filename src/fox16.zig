@@ -1,5 +1,4 @@
 const std = @import("std");
-const alloc = std.heap.page_allocator;
 
 pub const io_helper = @import("./io_helper.zig");
 pub const defs = @import("./foxconst.zig");
@@ -92,15 +91,20 @@ pub const CPU = struct {
     stderr: *io_helper.ZStderr,
     stdin: *io_helper.ZStdin,
 
-    pub fn new(stdout: *io_helper.ZStdout, stderr: *io_helper.ZStderr, stdin: *io_helper.ZStdin) CPU {
-        return CPU{ .stdin = stdin, .stdout = stdout, .stderr = stderr, .call_stack = std.ArrayList(usize){
-            .items = &.{},
-            .capacity = 0,
-        } };
+    gpa: std.mem.Allocator,
+
+    pub fn new(gpa: std.mem.Allocator, stdout: *io_helper.ZStdout, stderr: *io_helper.ZStderr, stdin: *io_helper.ZStdin) CPU {
+        return CPU{ 
+            .stdin = stdin, 
+            .stdout = stdout, 
+            .stderr = stderr, 
+            .call_stack = .empty,
+            .gpa = gpa
+        };
     }
 
     pub fn deinit(self: *Self) void {
-        self.call_stack.deinit(alloc);
+        self.call_stack.deinit(self.gpa);
     }
 
     pub fn next(self: *Self) !u32 {
@@ -169,7 +173,7 @@ pub const CPU = struct {
 
             defs.Instructions.CALL => {
                 const dest = try self.next();
-                try self.call_stack.append(alloc, self.pc);
+                try self.call_stack.append(self.gpa, self.pc);
                 try self.jump(dest);
             },
 
@@ -329,15 +333,15 @@ pub const CPU = struct {
 
     pub fn load_as_string(self: *Self, offset: usize) ![]u8 {
         var list = std.ArrayList(u8){ .capacity = 0, .items = &.{} };
-        defer list.deinit(alloc);
+        defer list.deinit(self.gpa);
 
         var current_offset = offset;
         while (try self.get_from_stack(current_offset) != 0) {
-            try list.append(alloc, @truncate(try self.get_from_stack(current_offset)));
+            try list.append(self.gpa, @truncate(try self.get_from_stack(current_offset)));
             current_offset += 1;
         }
 
-        return list.toOwnedSlice(alloc);
+        return list.toOwnedSlice(self.gpa);
     }
 
     pub fn store_string(self: *Self, offset: usize, string: []const u8) !void {
@@ -366,7 +370,7 @@ pub const CPU = struct {
             defs.Syscalls.PSTR => {
                 const offset = try self.get_register(128);
                 const string = try self.load_as_string(offset);
-                defer alloc.free(string);
+                defer self.gpa.free(string);
 
                 try io_helper.print(self.stdout, "{s}", .{string});
             },

@@ -1,6 +1,5 @@
 const std = @import("std");
 const defs = @import("./foxconst.zig");
-const gpa = std.heap.page_allocator;
 
 const AssemblerError = error {
     undefined_symbol,
@@ -26,7 +25,7 @@ const Position = struct {
 pub const Token = struct {
     const Variant = enum { int, ident, keyword, string, newline, register, stack_offset, stackptr_offset, end, comma };
     const KEYWORDS = [_][]const u8{
-        "mov", "halt", "syscall", "ld", "st", "spinc", "spdec", "nop",
+        "mov", "halt", "syscall", "ld", "st", "spinc", "spdec", "nop", "str",
 
         // ARITHMETIC
         "inc", "dec", "add", "sub", "mul", "div", "pow",
@@ -54,13 +53,14 @@ pub const Token = struct {
 pub const Lexer = struct {
     const Self = @This();
 
-    arena: *std.heap.ArenaAllocator,
+    arena: std.mem.Allocator,
+    gpa: std.mem.Allocator,
     source: []const u8,
     pos: Position = .{},
     current: u8 = 0,
 
-    pub fn init(arena: *std.heap.ArenaAllocator, source: []const u8) Lexer {
-        return Lexer{ .arena = arena, .source = source };
+    pub fn init(arena: std.mem.Allocator, gpa: std.mem.Allocator, source: []const u8) Lexer {
+        return Lexer{ .arena = arena, .gpa = gpa, .source = source };
     }
 
     pub fn next(self: *Self) void {
@@ -70,6 +70,8 @@ pub const Lexer = struct {
 
     pub fn lex(self: *Self) ![]Token {
         var tokens: std.ArrayList(Token) = .empty;
+        defer tokens.deinit(self.gpa);
+
         self.next();
 
         while (self.current != 0){
@@ -84,16 +86,16 @@ pub const Lexer = struct {
             }
             
             else if (self.current == ','){
-                try tokens.append(gpa, Token.init(.comma, self.pos, null));
+                try tokens.append(self.gpa, Token.init(.comma, self.pos, null));
                 self.next();
             }
 
             else if (self.current == '"'){
-                try tokens.append(gpa, try self.lex_string());
+                try tokens.append(self.gpa, try self.lex_string());
             }
 
             else if (self.current == '\n'){
-                try tokens.append(gpa, Token.init(.newline, self.pos, null));
+                try tokens.append(self.gpa, Token.init(.newline, self.pos, null));
                 self.next();
             }
 
@@ -116,8 +118,8 @@ pub const Lexer = struct {
                     };
                     if (final_char) |ch| {
                         // format the char into a string and make the slice outlive the buffer
-                        const final = try self.arena_alloc().dupe(u8, try std.fmt.bufPrint(&buf, "{}", .{ch}));
-                        try tokens.append(gpa, Token.init(.int, start, final));
+                        const final = try self.arena.dupe(u8, try std.fmt.bufPrint(&buf, "{}", .{ch}));
+                        try tokens.append(self.gpa, Token.init(.int, start, final));
                     } else {
                         fault("unexpected escape character '\\{c}'!", .{escape_char}, self.pos);
                         return AssemblerError.unexpected_char;
@@ -125,8 +127,8 @@ pub const Lexer = struct {
                 }
                 else {
                     // format the char into a string and make the slice outlive the buffer
-                    const final = try self.arena_alloc().dupe(u8, try std.fmt.bufPrint(&buf, "{}", .{self.current}));
-                    try tokens.append(gpa, Token.init(.int, start, final));
+                    const final = try self.arena.dupe(u8, try std.fmt.bufPrint(&buf, "{}", .{self.current}));
+                    try tokens.append(self.gpa, Token.init(.int, start, final));
                 }
 
                 self.next();
@@ -145,7 +147,7 @@ pub const Lexer = struct {
                 token.pos = start;
                 token.variant = .register;
 
-                try tokens.append(gpa, token);
+                try tokens.append(self.gpa, token);
             }
 
             else if (self.current == '$'){
@@ -161,66 +163,71 @@ pub const Lexer = struct {
                 token.pos = start;
                 token.variant = variant;
 
-                try tokens.append(gpa, token);
+                try tokens.append(self.gpa, token);
             }
 
             else if (std.ascii.isAlphabetic(self.current) or self.current == '_'){
-                try tokens.append(gpa, try self.lex_identifier());
+                try tokens.append(self.gpa, try self.lex_identifier());
             }
 
             else if (std.ascii.isDigit(self.current)){
-                try tokens.append(gpa, try self.lex_int());
+                try tokens.append(self.gpa, try self.lex_int());
+            }
+
+            else {
+                fault("unexpected char '{c}'", .{self.current}, self.pos);
+                return AssemblerError.unexpected_char;
             }
         }
 
-        try tokens.append(gpa, .init(.end, self.pos, null));
-        return try tokens.toOwnedSlice(gpa);
+        try tokens.append(self.gpa, .init(.end, self.pos, null));
+        return try self.arena.dupe(Token, tokens.items);
     }
 
     pub fn lex_int(self: *Self) !Token {
         var str: std.ArrayList(u8) = .empty;
-        defer str.deinit(gpa);
+        defer str.deinit(self.gpa);
 
         const start = self.pos;
 
         while (self.current != 0 and std.ascii.isDigit(self.current)){
-            try str.append(gpa, self.current);
+            try str.append(self.gpa, self.current);
             self.next();
         }
 
-        return Token.init(.int, start, try self.arena_alloc().dupe(u8, str.items));
+        return Token.init(.int, start, try self.arena.dupe(u8, str.items));
     }
 
     pub fn lex_string(self: *Self) !Token {
         var str: std.ArrayList(u8) = .empty;
-        defer str.deinit(gpa);
+        defer str.deinit(self.gpa);
 
         const start = self.pos;
 
         self.next(); // skip first quote
 
-        while (self.current != '"'){
-            try str.append(gpa, self.current);
+        while (self.current != 0 and self.current != '"'){
+            try str.append(self.gpa, self.current);
             self.next();
         }
 
         self.next(); // skip second quote
 
-        return Token.init(.string, start, try self.arena_alloc().dupe(u8, str.items));
+        return Token.init(.string, start, try self.arena.dupe(u8, str.items));
     }
 
     pub fn lex_identifier(self: *Self) !Token {
         var str: std.ArrayList(u8) = .empty;
-        defer str.deinit(gpa);
+        defer str.deinit(self.gpa);
 
         const start = self.pos;
         while (self.current != 0 and (std.ascii.isAlphanumeric(self.current) or self.current == '_')){
-            try str.append(gpa, self.current);
+            try str.append(self.gpa, self.current);
             self.next();
         }
 
         var variant = Token.Variant.ident;
-        const slice = try self.arena_alloc().dupe(u8, str.items);
+        const slice = try self.arena.dupe(u8, str.items);
 
         // check if the identifier is a keyword
         for (Token.KEYWORDS) |keyword| {
@@ -231,10 +238,6 @@ pub const Lexer = struct {
         }
 
         return Token.init(variant, start, slice);
-    }
-
-    pub fn arena_alloc(self: *Self) std.mem.Allocator {
-        return self.arena.allocator();
     }
 };
 
@@ -247,22 +250,27 @@ pub const Compiler = struct {
 
     program: std.ArrayList(u32) = .empty,
     pc: usize = 0,
-    label_map: std.StringHashMap(usize) = .init(gpa),
-    label_resolves: std.AutoHashMap(usize, []const u8) = .init(gpa),
+    label_map: std.StringHashMap(usize),
+    label_resolves: std.AutoHashMap(usize, []const u8),
     tokens: []Token,
     current: Token,
+    gpa: std.mem.Allocator,
     index: usize = 0,
 
-    pub fn init(tokens: []Token) Compiler {
+    pub fn init(tokens: []Token, gpa: std.mem.Allocator) Compiler {
         return Compiler{
+            .gpa = gpa,
             .tokens = tokens,
+            .label_map = .init(gpa),
+            .label_resolves = .init(gpa),
             .current = tokens[tokens.len - 1],
         };
     }
 
     pub fn deinit(self: *Self) void {
-        self.program.deinit(gpa);
+        self.program.deinit(self.gpa);
         self.label_map.deinit();
+        self.label_resolves.deinit();
     }
 
     pub fn next(self: *Self) void {
@@ -339,6 +347,26 @@ pub const Compiler = struct {
             try self.insert_instruction(register);
             try self.insert_instruction(defs.register_encoded(register));
             try self.insert_instruction(defs.const_encoded(1));
+        }
+
+        else if (equal_to(keyword, "str")){
+            const offset_begin = try self.expect_register();
+            try self.expect_comma();
+            const contents = try self.expect_string();
+
+            var index: u32 = 0;
+            while (index < contents.len) {
+                try self.insert_instruction(defs.Instructions.ST);
+                try self.insert_instruction(defs.register_encoded(offset_begin));
+                try self.insert_instruction(defs.const_encoded(@intCast(contents[index])));
+
+                // code for incrementation
+                try self.insert_instruction(defs.Instructions.ADD);
+                try self.insert_instruction(offset_begin);
+                try self.insert_instruction(defs.register_encoded(offset_begin));
+                try self.insert_instruction(defs.const_encoded(1));
+                index += 1;
+            }
         }
     
         // ARITHEMTIC
@@ -506,7 +534,7 @@ pub const Compiler = struct {
     }
 
     pub fn insert_instruction(self: *Self, inst: u32) !void {
-        try self.program.append(gpa, inst);
+        try self.program.append(self.gpa, inst);
         self.pc += 1;
     }
 
@@ -576,6 +604,17 @@ pub const Compiler = struct {
             fault("expected comma!", .{}, token.pos);
             return AssemblerError.expected_value_not_found;
         }
+    }
+
+    pub fn expect_string(self: *Self) ![]const u8 {
+        self.next();
+        const token = self.current;
+        if (token.variant != .string){
+            fault("expected string!", .{}, token.pos);
+            return AssemblerError.expected_value_not_found;
+        }
+
+        return token.value;
     }
 
     pub fn expect_value(self: *Self) !u32 {

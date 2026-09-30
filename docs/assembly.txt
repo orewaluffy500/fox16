@@ -56,6 +56,10 @@ jne <label>                 : jump if <val1> was not equal to <val2>
 jz <label>, <value>         : jump if <value> is zero
 jnz <label>, <value>        : jump if <value> isn't zero
 
+str <reg>, "<string>"       : starts at the stack offset in <reg>, goes through each character in the string
+                            and puts its byte value at the current offset and then goes to the next offset.
+                            its basically a simpler way to dump a string onto the stack
+
 halt                        : exit the program (required)
 syscall <const>             : call a syscall
 nop                         : NOP (0x0)
