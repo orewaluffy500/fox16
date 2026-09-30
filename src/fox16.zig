@@ -3,8 +3,7 @@ const std = @import("std");
 pub const io_helper = @import("./io_helper.zig");
 pub const defs = @import("./foxconst.zig");
 
-
-const Fox16Error = error {
+const Fox16Error = error{
     out_of_bounds,
     end_of_program,
     unexpected_instruction,
@@ -12,7 +11,6 @@ const Fox16Error = error {
     invalid_value,
     unexpected_value,
 };
-
 
 // COMP INFO struct
 
@@ -94,13 +92,7 @@ pub const CPU = struct {
     gpa: std.mem.Allocator,
 
     pub fn new(gpa: std.mem.Allocator, stdout: *io_helper.ZStdout, stderr: *io_helper.ZStderr, stdin: *io_helper.ZStdin) CPU {
-        return CPU{ 
-            .stdin = stdin, 
-            .stdout = stdout, 
-            .stderr = stderr, 
-            .call_stack = .empty,
-            .gpa = gpa
-        };
+        return CPU{ .stdin = stdin, .stdout = stdout, .stderr = stderr, .call_stack = .empty, .gpa = gpa };
     }
 
     pub fn deinit(self: *Self) void {
@@ -109,7 +101,7 @@ pub const CPU = struct {
 
     pub fn next(self: *Self) !u32 {
         self.pc += 1;
-        if (self.pc >= self.program_file.len){
+        if (self.pc >= self.program_file.len) {
             self.runtime_fault("end of program", .{});
             return Fox16Error.end_of_program;
         }
@@ -163,6 +155,23 @@ pub const CPU = struct {
             defs.Instructions.SPD => {
                 const value = try self.next_value();
                 self.memory.sp -%= value;
+            },
+
+            defs.Instructions.MEMCPY => {
+                const target_begin = try self.next_value();
+                const target_end = try self.next_value();
+                const dest_begin = try self.next_value();
+
+                if (target_end <= target_begin) {
+                    self.runtime_fault("invalid target position {} -> {}", .{ target_begin, target_end });
+                    return Fox16Error.out_of_bounds;
+                }
+
+                var offset: usize = 0;
+                while (target_begin + offset < target_end) {
+                    try self.set_to_stack(dest_begin + offset, try self.get_from_stack(target_begin + offset));
+                    offset += 1;
+                }
             },
 
             // FLOW-RELATED

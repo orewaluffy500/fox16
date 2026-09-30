@@ -34,6 +34,7 @@ ld <reg>, <val>             : get stack value from offset <val> into <reg>
 st <val1>, <val2>           : set stack value <val2> at offset <val1>
 spinc <val>                 : increment stack ptr by <val>
 spdec <val>                 : decrement stack ptr by <val>
+cpy <val1>, <val2>, <val3>  : copy the stack memory starting from offset <val1> to <val2> and being copied to <val3> and onwards
 
 jmp <label>                 : jump to a label without pushing pc onto call stack
 call <label>                : jump to a label and push pc onto call stack

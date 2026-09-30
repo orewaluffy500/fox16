@@ -2,63 +2,63 @@ const std = @import("std");
 
 // INSTRUCTION DEFINITIONS
 pub const Instructions = struct {
-    pub const NOP: u32      = 0x0;
-    pub const HALT: u32     = 0x10;
-    pub const SYSCALL: u32  = 0x11;
+    pub const NOP: u32 = 0x0;
+    pub const HALT: u32 = 0x10;
+    pub const SYSCALL: u32 = 0x11;
 
     // REGISTER-RELATED
-    pub const MOV: u32      = 0x20;
-    pub const ZZ: u32       = 0x21;
-    
+    pub const MOV: u32 = 0x20;
+    pub const ZZ: u32 = 0x21;
+
     // STACK-RELATED
-    pub const LD: u32       = 0x30;
-    pub const ST: u32       = 0x31;
-    pub const SPI: u32      = 0x32;
-    pub const SPD: u32      = 0x33;
+    pub const LD: u32 = 0x30;
+    pub const ST: u32 = 0x31;
+    pub const SPI: u32 = 0x32;
+    pub const SPD: u32 = 0x33;
+    pub const MEMCPY: u32 = 0x34;
 
     // FLOW-RELATED
-    pub const JMP: u32      = 0x40;
-    pub const CALL: u32     = 0x41;
-    pub const RET: u32      = 0x42;
-    pub const JZ: u32       = 0x43;
-    pub const JNZ: u32      = 0x44;
+    pub const JMP: u32 = 0x40;
+    pub const CALL: u32 = 0x41;
+    pub const RET: u32 = 0x42;
+    pub const JZ: u32 = 0x43;
+    pub const JNZ: u32 = 0x44;
 
-    pub const JL: u32       = 0x45;
-    pub const JLE: u32      = 0x46;
-    pub const JG: u32       = 0x47;
-    pub const JGE: u32      = 0x48;
-    pub const JE: u32       = 0x49;
-    pub const JNE: u32      = 0x4A;
+    pub const JL: u32 = 0x45;
+    pub const JLE: u32 = 0x46;
+    pub const JG: u32 = 0x47;
+    pub const JGE: u32 = 0x48;
+    pub const JE: u32 = 0x49;
+    pub const JNE: u32 = 0x4A;
 
-    pub const CMP: u32      = 0x4B;
+    pub const CMP: u32 = 0x4B;
 
     // ARITHMETIC
 
-    pub const ADD: u32      = 0x50;
-    pub const SUB: u32      = 0x51;
-    pub const MUL: u32      = 0x52;
-    pub const DIV: u32      = 0x53;
-    pub const POW: u32      = 0x54;
+    pub const ADD: u32 = 0x50;
+    pub const SUB: u32 = 0x51;
+    pub const MUL: u32 = 0x52;
+    pub const DIV: u32 = 0x53;
+    pub const POW: u32 = 0x54;
 };
 
 // SYSCALLS
 pub const Syscalls = struct {
-    pub const PINT: u32     = 0x100;
-    pub const PCHAR: u32    = 0x101;
-    pub const PSTR: u32     = 0x102;
+    pub const PINT: u32 = 0x100;
+    pub const PCHAR: u32 = 0x101;
+    pub const PSTR: u32 = 0x102;
 
-    pub const RINT: u32     = 0x200;
-    pub const RCHAR: u32    = 0x201;
-    pub const RSTR: u32     = 0x202;
+    pub const RINT: u32 = 0x200;
+    pub const RCHAR: u32 = 0x201;
+    pub const RSTR: u32 = 0x202;
 };
 
 // MODE BITS
 pub const Mode = struct {
-    pub const CONST: u2     = 0b00; // i wanted to use binary for fun
-    pub const REGIST: u2    = 0b01;
-    pub const SPOFFSET: u2  = 0b10;
+    pub const CONST: u2 = 0b00; // i wanted to use binary for fun
+    pub const REGIST: u2 = 0b01;
+    pub const SPOFFSET: u2 = 0b10;
 };
-
 
 // HELPERS
 

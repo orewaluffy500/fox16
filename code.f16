@@ -1,8 +1,10 @@
 label _main_
-    mov .128, 0         ; string start on stack
-    str .128, "hello"   ; after this, the register now points to the very end of the string
-    mov .128, 0         ; re-point it to the start
-    syscall 258         ; call PSTR
+    mov .1, 2
+    mov .2, .1
+    str .2, "hi"    ; .2 now points to string end
+    cpy .1, .2, 16
+    mov .128, 16
+    syscall 258
 
 label _exit_
     halt

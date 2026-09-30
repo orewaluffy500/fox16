@@ -25,7 +25,7 @@ const Position = struct {
 pub const Token = struct {
     const Variant = enum { int, ident, keyword, string, newline, register, stack_offset, stackptr_offset, end, comma };
     const KEYWORDS = [_][]const u8{
-        "mov", "halt", "syscall", "ld", "st", "spinc", "spdec", "nop", "str",
+        "mov", "halt", "syscall", "ld", "st", "spinc", "spdec", "nop", "str", "cpy",
 
         // ARITHMETIC
         "inc", "dec", "add", "sub", "mul", "div", "pow",
@@ -489,6 +489,15 @@ pub const Compiler = struct {
 
         else if (equal_to(keyword, "spdec")){
             try self.insert_instruction(defs.Instructions.SPD);
+            try self.insert_instruction(try self.expect_value());
+        }
+
+        else if (equal_to(keyword, "cpy")){
+            try self.insert_instruction(defs.Instructions.MEMCPY);
+            try self.insert_instruction(try self.expect_value());
+            try self.expect_comma();
+            try self.insert_instruction(try self.expect_value());
+            try self.expect_comma();
             try self.insert_instruction(try self.expect_value());
         }
 
