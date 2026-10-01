@@ -1,0 +1,59 @@
+label _main_
+    mov .1, 8       ; secret
+
+label ask
+    mov .128, 
+    str .128, 
+enter
+a
+number
+from
+1
+to
+10:
+
+    mov .128, 
+    
+    syscall 258
+    syscall 512     ; .128 now has the guess
+    cmp .128, .1
+    jl less
+    jg greater
+    je _exit_
+
+label less
+    mov .128, 
+    str .128, 
+too
+little!
+    mov .128, 
+    
+    syscall 258
+    mov .128, {\n}
+    syscall 257
+
+    jmp ask
+
+label greater
+    mov .128, 
+    str .128, too
+much!
+    mov .128, 
+
+    syscall 258
+    mov .128, {\n}
+    syscall 257
+
+    jmp ask
+
+label _exit_
+    mov .128, 
+    str .128, Thanks
+for
+playing!
+    mov .128, 
+
+    syscall 258
+    mov .128, {\n}
+    syscall 257
+    halt
