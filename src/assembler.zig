@@ -5,6 +5,7 @@ const AssemblerError = error {
     undefined_symbol,
     unexpected_char,
     expected_value_not_found,
+    existing_symbol,
 };
 
 const Position = struct {
@@ -25,7 +26,7 @@ const Position = struct {
 pub const Token = struct {
     const Variant = enum { int, ident, keyword, string, newline, register, stack_offset, stackptr_offset, end, comma };
     const KEYWORDS = [_][]const u8{
-        "mov", "halt", "syscall", "ld", "st", "spinc", "spdec", "nop", "str", "cpy",
+        "mov", "halt", "syscall", "ld", "st", "spinc", "spdec", "nop", "str", "cpy", "decl",
 
         // ARITHMETIC
         "inc", "dec", "add", "sub", "mul", "div", "pow",
@@ -252,6 +253,7 @@ pub const Compiler = struct {
     pc: usize = 0,
     label_map: std.StringHashMap(usize),
     label_resolves: std.AutoHashMap(usize, []const u8),
+    constant_definitions: std.StringHashMap(u16),
     tokens: []Token,
     current: Token,
     gpa: std.mem.Allocator,
@@ -263,6 +265,7 @@ pub const Compiler = struct {
             .tokens = tokens,
             .label_map = .init(gpa),
             .label_resolves = .init(gpa),
+            .constant_definitions = .init(gpa),
             .current = tokens[tokens.len - 1],
         };
     }
@@ -271,6 +274,7 @@ pub const Compiler = struct {
         self.program.deinit(self.gpa);
         self.label_map.deinit();
         self.label_resolves.deinit();
+        self.constant_definitions.deinit();
     }
 
     pub fn next(self: *Self) void {
@@ -347,6 +351,17 @@ pub const Compiler = struct {
             try self.insert_instruction(register);
             try self.insert_instruction(defs.register_encoded(register));
             try self.insert_instruction(defs.const_encoded(1));
+        }
+
+        else if (equal_to(keyword, "decl")){
+            const identifier = try self.expect_ident();
+            if (self.constant_definitions.get(identifier)) |_| {
+                fault("constant named '{s}' already exists!", .{identifier}, token.pos);
+                return AssemblerError.existing_symbol;
+            }
+            
+            try self.expect_comma();
+            try self.constant_definitions.put(identifier, try self.expect_integer());
         }
 
         else if (equal_to(keyword, "str")){
@@ -630,9 +645,19 @@ pub const Compiler = struct {
         self.next();
 
         const token = self.current;
-        if (token.variant != .int and token.variant != .register and token.variant != .stack_offset and token.variant != .stackptr_offset){
+        if (token.variant != .int and token.variant != .register and token.variant != .stack_offset and token.variant != .stackptr_offset and token.variant != .ident){
             fault("expected value, got {any}!", .{token.variant}, token.pos);
             return AssemblerError.expected_value_not_found;
+        }
+
+        if (token.variant == .ident){
+            const ident = token.value;
+            if (self.constant_definitions.get(ident)) |value| {
+                return defs.const_encoded(value);
+            }
+
+            fault("undefined constant '{s}'", .{ident}, token.pos);
+            return AssemblerError.undefined_symbol;
         }
 
         const num = std.fmt.parseInt(u16, token.value, 10) catch 0;

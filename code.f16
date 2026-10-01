@@ -1,10 +1,4 @@
-label _main_
-    mov .1, 2
-    mov .2, .1
-    str .2, "hi"    ; .2 now points to string end
-    cpy .1, .2, 16
-    mov .128, 16
-    syscall 258
-
-label _exit_
+    decl Ten, 10
+    mov .128, Ten
+    syscall 256
     halt
